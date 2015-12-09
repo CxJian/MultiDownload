@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:focusable="false"
+    android:focusableInTouchMode="false" >
+
+
+    <ProgressBar
+        android:id="@+id/btn_download_progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="180dp"
+        android:layout_height="49dp"
+        android:max="100"
+        android:progress="0"/>
+
+    <Button
+        android:id="@+id/btn_download"
+        android:layout_width="180dp"
+        android:layout_height="49dp"
+        android:layout_centerVertical="true"
+        android:background="@drawable/btn_bigblue_n"
+        android:textColor="#000000"
+        android:text="下载"
+        android:textSize="22sp" />
+
+</RelativeLayout>
