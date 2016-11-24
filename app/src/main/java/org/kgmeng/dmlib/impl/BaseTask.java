@@ -3,6 +3,7 @@ package org.kgmeng.dmlib.impl;
 import android.os.Handler;
 import android.util.Log;
 
+import org.kgmeng.dmlib.DownloadController;
 import org.kgmeng.dmlib.DownloadThread;
 import org.kgmeng.dmlib.IDownloadBaseOption;
 import org.kgmeng.dmlib.IDownloadStateListener;
@@ -192,12 +193,14 @@ public abstract class BaseTask implements IDownloadBaseOption, IDownloadThreadLi
                             break;
                         case ERROR:
                             stateListener.onFailed(params[0], (String) params[1]);
+                            DownloadController.INSTANCE.onFailedTask(params[0]);
                             break;
                         case PAUSE:
                             stateListener.onPause(params[0], (Long) params[1]);
                             break;
                         case DONE:
                             stateListener.onFinish(params[0], (String) params[1]);
+                            DownloadController.INSTANCE.onFinishTask(params[0]);
                             break;
                         case NONE:
                             stateListener.onCancel(params[0]);

@@ -99,40 +99,6 @@ public enum DownloadManager {
         mPausingTasks = Collections.synchronizedList(new ArrayList<BaseTask>());
         mErrorTasks = Collections.synchronizedList(new ArrayList<BaseTask>());
         pollThread = new PollThread();
-        registerStateListener(new IDownloadStateListener() {
-
-            @Override
-            public void onPrepare(Object entity, long size) {
-
-            }
-
-            @Override
-            public void onProcess(Object entity, long size) {
-
-            }
-
-            @Override
-            public void onFinish(Object entity, String savePath) {
-                DownloadManager.INSTANCE.onFinished((AppInfo) entity);
-            }
-
-            @Override
-            public void onFailed(Object entity, String msg) {
-                DownloadManager.INSTANCE.onFailed((AppInfo) entity);
-            }
-
-            @Override
-            public void onPause(Object entity, long size) {
-
-            }
-
-            @Override
-            public void onCancel(Object entity) {
-
-            }
-        });
-
-
         return this;
     }
 
@@ -332,7 +298,6 @@ public enum DownloadManager {
         if (mTaskQueue.contains(task)) {
             mTaskQueue.remove(task);
         } else if (mDownloadingTasks.contains(task)) {
-//            mDownloadingTasks.remove(task);
             int idx = mDownloadingTasks.indexOf(task);
             BaseTask dlTask = mDownloadingTasks.get(idx);
             dlTask.onCancelOption();
@@ -371,8 +336,6 @@ public enum DownloadManager {
     public  void onFailed(BaseTask task){
         if(mDownloadingTasks.contains(task)){
             int idx = mDownloadingTasks.indexOf(task);
-//            BaseTask dltask = mDownloadingTasks.get(idx);
-//            dltask.onStopOption();
             mDownloadingTasks.remove(idx);
             mDownloadCount--;
         }else if (mTaskQueue.contains(task)) {
@@ -380,7 +343,7 @@ public enum DownloadManager {
         }
     }
 
-    private void onFinished(AppInfo entity) {
+    public void onFinished(AppInfo entity) {
         //调用buildNewTask会产生临时文件,
         // 所以此处调用了,就应该把生成的临时文件删除
         BaseTask task = buildNewTask(entity, entity.downloadType);
@@ -405,8 +368,6 @@ public enum DownloadManager {
     private void onFinished(BaseTask task){
         if(mDownloadingTasks.contains(task)){
             int idx = mDownloadingTasks.indexOf(task);
-//            BaseTask dltask = mDownloadingTasks.get(idx);
-//            dltask.onStopOption();
             mDownloadingTasks.remove(idx);
             mDownloadCount--;
             Log.d("WEN", "下载完成，从下载队列中移除-" + task.getEntity().toString() + ",队列还有:" + mTaskQueue.size());
