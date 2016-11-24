@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         Log.i("tag", "make data finish");
 
         try {
-            downloadManager = DownloadManager.getInstance(MainActivity.this);
+            downloadManager = DownloadManager.INSTANCE.init(MainActivity.this);
             downloadManager.registerStateListener(iDownloadStateListener);
             downloadManager.onStart();
         } catch (IOException e) {
@@ -94,7 +94,6 @@ public class MainActivity extends Activity {
                 public void run() {
                     int progress = (int)(((double)size / (double)((AppInfo)entity).APPSIZE)  * 100);
                     ((AppInfo)entity).cur_size = progress;
-                    Log.i("feng", "onPrepare " + entity.toString() + ",size=" + progress);
                     updateView(entity, DownloadStatus.WAIT, progress);
                 }
             });
@@ -102,13 +101,12 @@ public class MainActivity extends Activity {
 
         @Override
         public void onProcess(final Object entity, final long size) {
-            Log.i("tag", "onProcess " + entity.toString() + ",size=" + size);
+//            Log.i("tag", "onProcess " + entity.toString() + ",size=" + size);
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     int progress = (int)(((double)size / (double)((AppInfo)entity).APPSIZE)  * 100);
                     ((AppInfo)entity).cur_size = progress;
-                    Log.i("feng", "onProcess " + entity.toString() + ",size=" + progress);
                     updateView(entity, DownloadStatus.DLING, progress);
                 }
             });
@@ -120,7 +118,6 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.i("feng", "onFinish " + entity.toString());
                     updateView(entity, DownloadStatus.DONE, savePath);
                 }
             });
@@ -132,7 +129,6 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.i("feng", "onFailed " + entity.toString());
                     updateView(entity, DownloadStatus.ERROR, msg);
                 }
             });
@@ -146,7 +142,6 @@ public class MainActivity extends Activity {
                 public void run() {
                     int progress = (int)(((double)size / (double)((AppInfo)entity).APPSIZE)  * 100);
                     ((AppInfo)entity).cur_size = progress;
-                    Log.i("feng", "onPause " + entity.toString() + ",size=" + progress);
                     updateView(entity, DownloadStatus.PAUSE, progress);
                 }
             });
@@ -158,7 +153,6 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.i("feng", "onCancel " + entity.toString() );
                     updateView(entity, DownloadStatus.NONE);
                 }
             });

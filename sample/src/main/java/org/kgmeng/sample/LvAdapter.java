@@ -30,7 +30,7 @@ public class LvAdapter extends BaseAdapter{
     public LvAdapter(Context context, List<AppInfo> apps) throws IOException {
         this.context = context;
         this.appInfos = apps;
-        downloadManager = DownloadManager.getInstance(context);
+        downloadManager = DownloadManager.INSTANCE;
     }
 
     @Override

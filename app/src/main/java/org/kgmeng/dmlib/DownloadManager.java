@@ -33,7 +33,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @date 2015/8/28
  */
 @SuppressLint("NewApi")
-public class DownloadManager {
+public enum DownloadManager {
+    INSTANCE;
+
     private static final String TAG = DownloadManager.class.getSimpleName();
 
     //队列最大容量
@@ -63,8 +65,6 @@ public class DownloadManager {
 
     private volatile int mDownloadCount;
 
-    private static DownloadManager downloadManager;
-
 //    private Type downloadType;//default cdn
 
     private List<WeakReference<IDownloadStateListener>> downloadStateListeners;
@@ -90,16 +90,8 @@ public class DownloadManager {
         }
     }
 
-    public static DownloadManager getInstance(Context context) throws IOException {
-        synchronized (DownloadManager.class) {
-            if (downloadManager == null) {
-                downloadManager = new DownloadManager(context);
-            }
-            return downloadManager;
-        }
-    }
 
-    private DownloadManager(Context context) throws IOException {
+    public DownloadManager init(Context context) throws IOException {
         mContext = context;
         downloadStateListeners = new LinkedList<WeakReference<IDownloadStateListener>>();
         mTaskQueue = new LinkedBlockingQueue<BaseTask>(MAX_DOWNLOAD_SIZE);
@@ -107,6 +99,41 @@ public class DownloadManager {
         mPausingTasks = Collections.synchronizedList(new ArrayList<BaseTask>());
         mErrorTasks = Collections.synchronizedList(new ArrayList<BaseTask>());
         pollThread = new PollThread();
+        registerStateListener(new IDownloadStateListener() {
+
+            @Override
+            public void onPrepare(Object entity, long size) {
+
+            }
+
+            @Override
+            public void onProcess(Object entity, long size) {
+
+            }
+
+            @Override
+            public void onFinish(Object entity, String savePath) {
+                DownloadManager.INSTANCE.onFinished((AppInfo) entity);
+            }
+
+            @Override
+            public void onFailed(Object entity, String msg) {
+                DownloadManager.INSTANCE.onFailed((AppInfo) entity);
+            }
+
+            @Override
+            public void onPause(Object entity, long size) {
+
+            }
+
+            @Override
+            public void onCancel(Object entity) {
+
+            }
+        });
+
+
+        return this;
     }
 
     private Handler uiHandler = new Handler(Looper.getMainLooper()) {
@@ -138,19 +165,11 @@ public class DownloadManager {
         }
 
         private void takeTask() throws InterruptedException {
-            while (isInterrupt) {
+            while (!isInterrupt) {
                 BaseTask task = null;
-                synchronized (mTaskQueue) {
-                    if (mTaskQueue.isEmpty() || mDownloadCount >= MAX_DOWNLING_PROCESS_SIZE) {
-                        Log.d("WEN", "mTaskQueue.wait() mDownloadingTasks.size()=" + mDownloadingTasks.size()
-                                + ",mTaskQueue.size()=" + mTaskQueue.size());
-                        mTaskQueue.wait();
-                    }
-                    if(mTaskQueue.size()>0 && mDownloadingTasks.size() < MAX_DOWNLING_PROCESS_SIZE){
-                        task = mTaskQueue.take();
-                        Log.d("WEN", "mTaskQueue.take()");
-                    }
-
+                Log.i(TAG, "Poll DownloadThread downloading size:" + mDownloadCount);
+                if (mDownloadCount < MAX_DOWNLING_PROCESS_SIZE) {
+                    task = mTaskQueue.take();
                 }
                 if (task != null) {
                     if(mDownloadingTasks.size()< MAX_DOWNLING_PROCESS_SIZE){
@@ -172,7 +191,6 @@ public class DownloadManager {
      */
     public void onStart() {
         Log.i(TAG, "DownloadManage start");
-        isInterrupt = true;
         if (!pollThread.isAlive()) {
             pollThread.start();
         }
@@ -182,12 +200,11 @@ public class DownloadManager {
      * 销毁
      */
     public void onDestroy() {
-        isInterrupt = false;
+        isInterrupt = true;
         mTaskQueue.clear();
         mDownloadingTasks.clear();
         mErrorTasks.clear();
         mPausingTasks.clear();
-        downloadManager = null;
     }
 
     public boolean isRunning() {
@@ -198,19 +215,6 @@ public class DownloadManager {
     public int getTotalTaskCount() {
         Log.i(TAG, "mErrorTasks.size():" + mErrorTasks.size());
         return mTaskQueue.size() + mDownloadingTasks.size() + mPausingTasks.size() + mErrorTasks.size();
-    }
-
-    /**
-     * 是否有任务
-     * @param entity
-     * @return
-     */
-    public boolean isExists(Object entity) {
-        BaseTask task = buildNewTask((AppInfo) entity, ((AppInfo)entity).downloadType);
-        //task is null not allow put into queue
-        if (task == null)
-            return true;
-        return isExists(task);
     }
 
     /**
@@ -289,12 +293,10 @@ public class DownloadManager {
         if (isAllPause) {
             ret = mPausingTasks.add(task);
         } else {
-            synchronized (mTaskQueue) {
-                ret = mTaskQueue.offer(task);
-                mTaskQueue.notifyAll();
-                task.onPrepareOption();
-                Log.d("WEN", "等待队列中增加1个任务，并通知消费者");
-            }
+            ret = mTaskQueue.offer(task);
+            task.onPrepareOption();
+            Log.d("WEN", "等待队列中增加1个任务，并通知消费者");
+
         }
         return ret;
     }
@@ -313,19 +315,13 @@ public class DownloadManager {
             BaseTask dlTask = mDownloadingTasks.get(idx);
             mDownloadingTasks.remove(idx);
             dlTask.onPauseOption();
-
+            mDownloadCount--;
         } else if (mTaskQueue.contains(task)) {
             mTaskQueue.remove(task);
         }
         if (!mPausingTasks.contains(task))
             mPausingTasks.add(task);
 
-        //有暂停操作，说明 下载队列的名额空了1个出来，赶紧通知消费者从 等待队列取任务
-        if(mTaskQueue.size()>0){
-            synchronized (mTaskQueue){
-                mTaskQueue.notifyAll();
-            }
-        }
     }
 
     /**
@@ -341,6 +337,7 @@ public class DownloadManager {
             BaseTask dlTask = mDownloadingTasks.get(idx);
             dlTask.onCancelOption();
             mDownloadingTasks.remove(idx);
+            mDownloadCount--;
         } else if (mPausingTasks.contains(task)) {
             mPausingTasks.remove(task);
         } else if (mErrorTasks.contains(task)) {
@@ -366,30 +363,24 @@ public class DownloadManager {
         }
     }
 
-    public synchronized void onFailed(AppInfo entity,Type  type){
-        BaseTask task = buildNewTask(entity,type);
-        onFailed(task,type);
+    public void onFailed(AppInfo entity){
+        BaseTask task = buildNewTask(entity, entity.downloadType);
+        onFailed(task);
     }
 
-    public  void onFailed(BaseTask task,Type  type){
+    public  void onFailed(BaseTask task){
         if(mDownloadingTasks.contains(task)){
             int idx = mDownloadingTasks.indexOf(task);
-            BaseTask dltask = mDownloadingTasks.get(idx);
-            dltask.onStopOption();
+//            BaseTask dltask = mDownloadingTasks.get(idx);
+//            dltask.onStopOption();
             mDownloadingTasks.remove(idx);
-//            Log.d("WEN", "DownloadManager  onFailed函数中  "+"下载失败，从下载队列中移除"+" "+type);
+            mDownloadCount--;
         }else if (mTaskQueue.contains(task)) {
             mTaskQueue.remove(task);
         }
-        //通知 pollThread取任务
-        if(mTaskQueue.size()>0){
-            synchronized (mTaskQueue){
-                mTaskQueue.notifyAll();
-            }
-        }
     }
 
-    public void onFinished(AppInfo entity) {
+    private void onFinished(AppInfo entity) {
         //调用buildNewTask会产生临时文件,
         // 所以此处调用了,就应该把生成的临时文件删除
         BaseTask task = buildNewTask(entity, entity.downloadType);
@@ -411,20 +402,15 @@ public class DownloadManager {
         }
     }
 
-    public void onFinished(BaseTask task){
+    private void onFinished(BaseTask task){
         if(mDownloadingTasks.contains(task)){
             int idx = mDownloadingTasks.indexOf(task);
-            BaseTask dltask = mDownloadingTasks.get(idx);
-            dltask.onStopOption();
+//            BaseTask dltask = mDownloadingTasks.get(idx);
+//            dltask.onStopOption();
             mDownloadingTasks.remove(idx);
-            Log.d("WEN", "下载完成，从下载队列中移除-" + task.getEntity().toString());
+            mDownloadCount--;
+            Log.d("WEN", "下载完成，从下载队列中移除-" + task.getEntity().toString() + ",队列还有:" + mTaskQueue.size());
 
-            //通知pollThread取任务
-            if(mTaskQueue.size()>0){
-                synchronized (mTaskQueue){
-                    mTaskQueue.notifyAll();
-                }
-            }
         }else if(mTaskQueue.contains(task)){
             mTaskQueue.remove(task);
         }
